@@ -116,42 +116,85 @@ def update_history(current_data):
     return history
 
 def generate_chart(history):
-    """Generates a line chart for the last 30 days."""
+    """Generates a line chart for the last 180 days with Nifty overlay."""
     if not history:
         print("No history to plot.")
         return
 
-    df = pd.DataFrame(history)
+    # Create DataFrame
+    data_list = []
+    for entry in history:
+        timestamp = entry.get('timestamp')
+        mmi_val = entry.get('value')
+
+        # Extract Nifty value safely
+        nifty_val = None
+        if 'raw_data' in entry and 'nifty' in entry['raw_data']:
+            nifty_val = entry['raw_data']['nifty']
+
+        data_list.append({
+            'timestamp': timestamp,
+            'mmi': mmi_val,
+            'nifty': nifty_val
+        })
+
+    df = pd.DataFrame(data_list)
     df['timestamp'] = pd.to_datetime(df['timestamp'])
 
-    # Filter last 30 days
-    # (Actually seeing the user request, "last 30 days of data".
-    # If we run hourly, that's 24 * 30 points. Line chart handles it fine.)
-    cutoff_date = pd.Timestamp.now(tz=df['timestamp'].dt.tz) - pd.Timedelta(days=30)
+    # Filter last 180 days (6 months)
+    cutoff_date = pd.Timestamp.now(tz=df['timestamp'].dt.tz) - pd.Timedelta(days=180)
     df = df[df['timestamp'] > cutoff_date]
 
     if df.empty:
-        print("No data in the last 30 days to plot.")
+        print("No data in the last 180 days to plot.")
         return
 
-    plt.figure(figsize=(10, 6))
-    plt.plot(df['timestamp'], df['value'], marker='o', linestyle='-', color='purple', markersize=4)
+    # Sort by date to ensure line plot is correct
+    df = df.sort_values('timestamp')
 
-    # Add colored zones background
-    plt.axhspan(0, 30, color='green', alpha=0.1, label='Extreme Fear')
-    plt.axhspan(30, 50, color='lime', alpha=0.1, label='Fear')
-    plt.axhspan(50, 70, color='orange', alpha=0.1, label='Greed')
-    plt.axhspan(70, 100, color='red', alpha=0.1, label='Extreme Greed')
+    # Create figure and primary axis (MMI)
+    fig, ax1 = plt.subplots(figsize=(10, 6))
 
-    plt.title("Market Mood Index (MMI) - Last 30 Days")
-    plt.xlabel("Date")
-    plt.ylabel("MMI Value")
-    plt.grid(True, linestyle='--', alpha=0.7)
-    plt.ylim(0, 100)
+    # Plot MMI on ax1 (Left Axis)
+    color = 'purple'
+    ax1.set_xlabel('Date')
+    ax1.set_ylabel('MMI Value', color=color)
+    line1, = ax1.plot(df['timestamp'], df['mmi'], marker='o', linestyle='-', color=color, markersize=4, label='MMI')
+    ax1.tick_params(axis='y', labelcolor=color)
+    ax1.set_ylim(0, 100)
+    ax1.grid(True, linestyle='--', alpha=0.5)
+
+    # Add colored zones background to ax1
+    ax1.axhspan(0, 30, color='green', alpha=0.1, label='Extreme Fear')
+    ax1.axhspan(30, 50, color='lime', alpha=0.1, label='Fear')
+    ax1.axhspan(50, 70, color='orange', alpha=0.1, label='Greed')
+    ax1.axhspan(70, 100, color='red', alpha=0.1, label='Extreme Greed')
+
+    # Create secondary axis (Nifty) sharing the same x-axis
+    ax2 = ax1.twinx()
+    color = 'tab:blue'
+    ax2.set_ylabel('Nifty Index', color=color)
+    # Filter out None values for Nifty plotting
+    mask = df['nifty'].notna()
+    line2, = ax2.plot(df.loc[mask, 'timestamp'], df.loc[mask, 'nifty'], linestyle='--', color=color, alpha=0.7, label='Nifty')
+    ax2.tick_params(axis='y', labelcolor=color)
+
+    # Combine legends
+    # We want legends from both axes.
+    # Use lines from ax1 (only the MMI line, ignoring zones for cleaner legend?)
+    # or just let matplotlib handle it.
+    # To mimic previous simple legend + zones, we can just add a custom legend or handle it simply.
+
+    # Simple combined legend
+    lines = [line1, line2]
+    labels = [l.get_label() for l in lines]
+    ax1.legend(lines, labels, loc='upper left')
+
+    plt.title("Market Mood Index (MMI) vs Nifty - Last 6 Months")
 
     # Format x-axis
-    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-    plt.gcf().autofmt_xdate()
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    fig.autofmt_xdate()
 
     plt.tight_layout()
     plt.savefig(CHART_FILE)
