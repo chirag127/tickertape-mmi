@@ -7,8 +7,8 @@ This repository automatically fetches the MMI value, stores the history, and gen
 
 ## Latest MMI Value
 
-**45.37** - **Fear**
-<small>Last Updated: 2026-02-20 06:39 UTC</small>
+**45.32** - **Fear**
+<small>Last Updated: 2026-02-20 07:39 UTC</small>
 
 ## MMI Trend (Last 30 Days)
 
