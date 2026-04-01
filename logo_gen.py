@@ -1,6 +1,7 @@
-import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import matplotlib.pyplot as plt
 import numpy as np
+
 
 def create_logo():
     # consistent with previous SVG dimensions approx ratio
@@ -15,15 +16,20 @@ def create_logo():
     # Background "Tape" - Light Gray Rectangle with rounded appearance
     # Matplotlib doesn't have easy rounded rect patch for data coords mixed with figure,
     # but a simple rectangle is fine for the "tape" look.
-    rect = patches.FancyBboxPatch((0.05, 0.2), 0.9, 0.6,
-                                  boxstyle="round,pad=0.05",
-                                  ec="#333333", fc="#f5f5f5",
-                                  linewidth=2,
-                                  transform=ax.transAxes)
+    rect = patches.FancyBboxPatch(
+        (0.05, 0.2),
+        0.9,
+        0.6,
+        boxstyle="round,pad=0.05",
+        ec="#333333",
+        fc="#f5f5f5",
+        linewidth=2,
+        transform=ax.transAxes,
+    )
     ax.add_patch(rect)
 
     # Tape Holes
-    hole_color = '#333333'
+    hole_color = "#333333"
     holes_x = [0.08, 0.08, 0.92, 0.92]
     holes_y = [0.35, 0.65, 0.35, 0.65]
     ax.scatter(holes_x, holes_y, s=50, c=hole_color, transform=ax.transAxes, zorder=5)
@@ -46,7 +52,7 @@ def create_logo():
 
     # Normalize x for color map (Red to Green)
     norm = plt.Normalize(x.min(), x.max())
-    lc = LineCollection(segments, cmap='RdYlGn', norm=norm, linewidth=5)
+    lc = LineCollection(segments, cmap="RdYlGn", norm=norm, linewidth=5)
 
     # Set the values used for colormapping
     lc.set_array(x)
@@ -58,18 +64,27 @@ def create_logo():
     ax.add_collection(lc)
 
     # Text "Ticker Tape MMI"
-    ax.text(0.5, 0.82, "Ticker Tape MMI",
-            transform=ax.transAxes,
-            ha='center', va='center',
-            fontsize=20, weight='bold', color='#333333', fontfamily='sans-serif')
+    ax.text(
+        0.5,
+        0.82,
+        "Ticker Tape MMI",
+        transform=ax.transAxes,
+        ha="center",
+        va="center",
+        fontsize=20,
+        weight="bold",
+        color="#333333",
+        fontfamily="sans-serif",
+    )
 
     # Indicator Dot (at the end)
     last_x, last_y = x[-1], y[-1]
-    ax.scatter([last_x], [last_y], s=100, c='green', zorder=10) # End point greed
+    ax.scatter([last_x], [last_y], s=100, c="green", zorder=10)  # End point greed
 
-    plt.savefig('logo.png', transparent=True)
+    plt.savefig("logo.png", transparent=True)
     print("logo.png created")
     plt.close()
+
 
 if __name__ == "__main__":
     create_logo()

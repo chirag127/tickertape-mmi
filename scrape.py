@@ -1,10 +1,11 @@
-import requests
 import json
 import os
-import pandas as pd
-import matplotlib.pyplot as plt
 from datetime import datetime
+
 import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+import pandas as pd
+import requests
 
 # Configuration
 API_URL = "https://api.tickertape.in/mmi/now"
@@ -28,12 +29,13 @@ HEADERS = {
     "sec-fetch-mode": "cors",
     "sec-fetch-site": "same-site",
     "sec-gpc": "1",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
 }
 
 COOKIES = {
     "AMP_d9d4ec74fa": "JTdCJTIyZGV2aWNlSWQlMjIlM0ElMjIwZGExNDExZS02MTk1LTQ5OTAtOGIzYy03MGEwNjNmYmMwMWElMjIlMkMlMjJzZXNzaW9uSWQlMjIlM0ExNzcxMjU0NjgxNTEyJTJDJTIyb3B0T3V0JTIyJTNBZmFsc2UlMkMlMjJsYXN0RXZlbnRUaW1lJTIyJTNBMTc3MTI1NTY0MTI1NiUyQyUyMmxhc3RFdmVudElkJTIyJTNBNDI3JTdE"
 }
+
 
 def fetch_mmi_data():
     """Fetches the current MMI data from Ticker Tape API."""
@@ -49,6 +51,7 @@ def fetch_mmi_data():
     except Exception as e:
         print(f"Error fetching data: {e}")
         return None
+
 
 def get_mood_label(mmi_value):
     """Returns the mood label based on MMI value."""
@@ -66,6 +69,7 @@ def get_mood_label(mmi_value):
         return "Greed"
     else:
         return "Extreme Greed"
+
 
 def update_history(current_data):
     """Updates the history.json file with the new data point."""
@@ -97,11 +101,11 @@ def update_history(current_data):
         "timestamp": timestamp,
         "value": value,
         "mood": get_mood_label(value),
-        "raw_data": { # Optional: store some other fields if useful
+        "raw_data": {  # Optional: store some other fields if useful
             "nifty": current_data.get("nifty"),
             "fma": current_data.get("fma"),
-            "sma": current_data.get("sma")
-        }
+            "sma": current_data.get("sma"),
+        },
     }
 
     # Avoid duplicate data points based on timestamp from source
@@ -115,6 +119,7 @@ def update_history(current_data):
 
     return history
 
+
 def generate_chart(history):
     """Generates a line chart for the last 180 days with Nifty overlay."""
     if not history:
@@ -124,60 +129,71 @@ def generate_chart(history):
     # Create DataFrame
     data_list = []
     for entry in history:
-        timestamp = entry.get('timestamp')
-        mmi_val = entry.get('value')
+        timestamp = entry.get("timestamp")
+        mmi_val = entry.get("value")
 
         # Extract Nifty value safely
         nifty_val = None
-        if 'raw_data' in entry and 'nifty' in entry['raw_data']:
-            nifty_val = entry['raw_data']['nifty']
+        if "raw_data" in entry and "nifty" in entry["raw_data"]:
+            nifty_val = entry["raw_data"]["nifty"]
 
-        data_list.append({
-            'timestamp': timestamp,
-            'mmi': mmi_val,
-            'nifty': nifty_val
-        })
+        data_list.append({"timestamp": timestamp, "mmi": mmi_val, "nifty": nifty_val})
 
     df = pd.DataFrame(data_list)
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
 
     # Filter last 180 days (6 months)
-    cutoff_date = pd.Timestamp.now(tz=df['timestamp'].dt.tz) - pd.Timedelta(days=180)
-    df = df[df['timestamp'] > cutoff_date]
+    cutoff_date = pd.Timestamp.now(tz=df["timestamp"].dt.tz) - pd.Timedelta(days=180)
+    df = df[df["timestamp"] > cutoff_date]
 
     if df.empty:
         print("No data in the last 180 days to plot.")
         return
 
     # Sort by date to ensure line plot is correct
-    df = df.sort_values('timestamp')
+    df = df.sort_values("timestamp")
 
     # Create figure and primary axis (MMI)
     fig, ax1 = plt.subplots(figsize=(10, 6))
 
     # Plot MMI on ax1 (Left Axis)
-    color = 'purple'
-    ax1.set_xlabel('Date')
-    ax1.set_ylabel('MMI Value', color=color)
-    line1, = ax1.plot(df['timestamp'], df['mmi'], marker='o', linestyle='-', color=color, markersize=4, label='MMI')
-    ax1.tick_params(axis='y', labelcolor=color)
+    color = "purple"
+    ax1.set_xlabel("Date")
+    ax1.set_ylabel("MMI Value", color=color)
+    (line1,) = ax1.plot(
+        df["timestamp"],
+        df["mmi"],
+        marker="o",
+        linestyle="-",
+        color=color,
+        markersize=4,
+        label="MMI",
+    )
+    ax1.tick_params(axis="y", labelcolor=color)
     ax1.set_ylim(0, 100)
-    ax1.grid(True, linestyle='--', alpha=0.5)
+    ax1.grid(True, linestyle="--", alpha=0.5)
 
     # Add colored zones background to ax1
-    ax1.axhspan(0, 30, color='green', alpha=0.1, label='Extreme Fear')
-    ax1.axhspan(30, 50, color='lime', alpha=0.1, label='Fear')
-    ax1.axhspan(50, 70, color='orange', alpha=0.1, label='Greed')
-    ax1.axhspan(70, 100, color='red', alpha=0.1, label='Extreme Greed')
+    ax1.axhspan(0, 30, color="green", alpha=0.1, label="Extreme Fear")
+    ax1.axhspan(30, 50, color="lime", alpha=0.1, label="Fear")
+    ax1.axhspan(50, 70, color="orange", alpha=0.1, label="Greed")
+    ax1.axhspan(70, 100, color="red", alpha=0.1, label="Extreme Greed")
 
     # Create secondary axis (Nifty) sharing the same x-axis
     ax2 = ax1.twinx()
-    color = 'tab:blue'
-    ax2.set_ylabel('Nifty Index', color=color)
+    color = "tab:blue"
+    ax2.set_ylabel("Nifty Index", color=color)
     # Filter out None values for Nifty plotting
-    mask = df['nifty'].notna()
-    line2, = ax2.plot(df.loc[mask, 'timestamp'], df.loc[mask, 'nifty'], linestyle='--', color=color, alpha=0.7, label='Nifty')
-    ax2.tick_params(axis='y', labelcolor=color)
+    mask = df["nifty"].notna()
+    (line2,) = ax2.plot(
+        df.loc[mask, "timestamp"],
+        df.loc[mask, "nifty"],
+        linestyle="--",
+        color=color,
+        alpha=0.7,
+        label="Nifty",
+    )
+    ax2.tick_params(axis="y", labelcolor=color)
 
     # Combine legends
     # We want legends from both axes.
@@ -188,12 +204,12 @@ def generate_chart(history):
     # Simple combined legend
     lines = [line1, line2]
     labels = [l.get_label() for l in lines]
-    ax1.legend(lines, labels, loc='upper left')
+    ax1.legend(lines, labels, loc="upper left")
 
     plt.title("Market Mood Index (MMI) vs Nifty - Last 6 Months")
 
     # Format x-axis
-    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
     fig.autofmt_xdate()
 
     plt.tight_layout()
@@ -201,18 +217,19 @@ def generate_chart(history):
     print(f"Chart saved to {CHART_FILE}")
     plt.close()
 
+
 def update_readme(latest_entry):
     """Updates the README.md with the latest MMI value and chart."""
     if not latest_entry:
         return
 
-    mmi_value = latest_entry['value']
-    mood = latest_entry['mood']
-    timestamp = latest_entry['timestamp']
+    mmi_value = latest_entry["value"]
+    mood = latest_entry["mood"]
+    timestamp = latest_entry["timestamp"]
 
     # Convert timestamp to readable format
     try:
-        dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+        dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
         readable_time = dt.strftime("%Y-%m-%d %H:%M UTC")
     except:
         readable_time = timestamp
@@ -256,6 +273,7 @@ Raw JSON File:
         f.write(content)
     print("README.md updated.")
 
+
 def main():
     print("Starting MMI Scraper...")
     data = fetch_mmi_data()
@@ -266,6 +284,7 @@ def main():
             update_readme(history[-1])
     else:
         print("Failed to fetch data, skipping update.")
+
 
 if __name__ == "__main__":
     main()
