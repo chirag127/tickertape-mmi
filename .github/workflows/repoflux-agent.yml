@@ -1,0 +1,698 @@
+
+name: RepoFlux — AI Coding Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'RepoFlux Run ID'
+        required: true
+        type: string
+      prompt:
+        description: 'The task for the AI agent'
+        required: true
+        type: string
+      agent_type:
+        description: 'Which agent to use (gemini, aider, opencode, crush, qwen, goose, claude-code, codex, aider-ollama)'
+        required: false
+        default: 'gemini'
+        type: string
+      state_repo:
+        description: 'The state repository name'
+        required: true
+        type: string
+      branch:
+        description: 'Branch to run on'
+        required: false
+        default: 'main'
+        type: string
+      openrouter_model:
+        description: 'Model for OpenRouter agents'
+        required: false
+        default: 'meta-llama/llama-4-scout:free'
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate Global Context and MCP Configurations
+        run: |
+          mkdir -p .gemini .opencode .qwen .claude
+          
+          # --- Global Context (GEMINI.md) ---
+          cat << 'GEMINIMD_EOF' > GEMINI.md
+          # Project Instructions
+          - **Environment:** You are running in an automated CI/CD GitHub Actions environment.
+          - **Focus:** Always output functional and production-ready code.
+          - **Constraints:** Do not use interactive shell commands. Assume `--yolo` approval mode.
+          GEMINIMD_EOF
+          
+          # --- Exclusions (.geminiignore) ---
+          cat << 'GEMINIIGNORE_EOF' > .geminiignore
+          node_modules/
+          dist/
+          build/
+          .git/
+          .env
+          GEMINIIGNORE_EOF
+
+          # --- gemini (.gemini/settings.json) ---
+          cat << 'GEMINI_EOF' > .gemini/settings.json
+{
+  "general": {
+    "checkpointing": {
+      "enabled": true
+    }
+  },
+  "tools": {
+    "approvalMode": "yolo"
+  },
+  "mcpServers": {
+    "context7": {
+      "httpUrl": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "${{ secrets.CONTEXT7_API_KEY }}"
+      }
+    },
+    "ref": {
+      "httpUrl": "https://api.ref.tools/mcp",
+      "headers": {
+        "x-ref-api-key": "${{ secrets.REF_API_KEY }}"
+      }
+    },
+    "docfork": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "docfork"
+      ]
+    },
+    "exa": {
+      "httpUrl": "https://mcp.exa.ai/mcp"
+    },
+    "linkup": {
+      "httpUrl": "https://mcp.linkup.so/mcp?apiKey=${{ secrets.LINKUP_API_KEY }}"
+    },
+    "kindly-web-search": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/Shelpuk-AI-Technology-Consulting/kindly-web-search-mcp-server",
+        "kindly-web-search-mcp-server",
+        "start-mcp-server"
+      ],
+      "env": {
+        "SERPER_API_KEY": "${{ secrets.SERPER_API_KEY }}",
+        "TAVILY_API_KEY": "${{ secrets.TAVILY_API_KEY }}",
+        "KINDLY_BROWSER_EXECUTABLE_PATH": "/usr/bin/google-chrome-stable"
+      }
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/github/workspace"
+      ]
+    },
+    "github": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}"
+      }
+    },
+    "memory": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ]
+    },
+    "fetch": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-fetch"
+      ]
+    }
+  }
+}
+          GEMINI_EOF
+
+          # --- qwen (.qwen/settings.json) ---
+          cat << 'QWEN_EOF' > .qwen/settings.json
+{
+  "security": {
+    "auth": {
+      "selectedType": "qwen-oauth"
+    }
+  },
+  "$version": 3,
+  "ide": {
+    "enabled": true,
+    "hasSeenNudge": true
+  },
+  "model": {
+    "name": "coder-model"
+  },
+  "tools": {
+    "approvalMode": "yolo"
+  },
+  "general": {
+    "language": "en"
+  },
+  "context": {
+    "fileFiltering": {
+      "respectGitIgnore": false,
+      "respectQwenIgnore": false
+    }
+  },
+  "mcpServers": {
+    "context7": {
+      "httpUrl": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "${{ secrets.CONTEXT7_API_KEY }}"
+      }
+    },
+    "ref": {
+      "httpUrl": "https://api.ref.tools/mcp",
+      "headers": {
+        "x-ref-api-key": "${{ secrets.REF_API_KEY }}"
+      }
+    },
+    "docfork": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "docfork"
+      ]
+    },
+    "exa": {
+      "httpUrl": "https://mcp.exa.ai/mcp"
+    },
+    "linkup": {
+      "httpUrl": "https://mcp.linkup.so/mcp?apiKey=${{ secrets.LINKUP_API_KEY }}"
+    },
+    "kindly-web-search": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/Shelpuk-AI-Technology-Consulting/kindly-web-search-mcp-server",
+        "kindly-web-search-mcp-server",
+        "start-mcp-server"
+      ],
+      "env": {
+        "SERPER_API_KEY": "${{ secrets.SERPER_API_KEY }}",
+        "TAVILY_API_KEY": "${{ secrets.TAVILY_API_KEY }}",
+        "KINDLY_BROWSER_EXECUTABLE_PATH": "/usr/bin/google-chrome-stable"
+      }
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/github/workspace"
+      ]
+    },
+    "github": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}"
+      }
+    },
+    "memory": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ]
+    },
+    "fetch": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-fetch"
+      ]
+    }
+  }
+}
+          QWEN_EOF
+
+          # --- claude-code (.mcp.json) ---
+          cat << 'CLAUDECODE_EOF' > .mcp.json
+{
+  "mcpServers": {
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "${{ secrets.CONTEXT7_API_KEY }}"
+      }
+    },
+    "ref": {
+      "type": "http",
+      "url": "https://api.ref.tools/mcp",
+      "headers": {
+        "x-ref-api-key": "${{ secrets.REF_API_KEY }}"
+      }
+    },
+    "docfork": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "docfork"
+      ]
+    },
+    "exa": {
+      "type": "http",
+      "url": "https://mcp.exa.ai/mcp"
+    },
+    "linkup": {
+      "type": "http",
+      "url": "https://mcp.linkup.so/mcp?apiKey=${{ secrets.LINKUP_API_KEY }}"
+    },
+    "kindly-web-search": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/Shelpuk-AI-Technology-Consulting/kindly-web-search-mcp-server",
+        "kindly-web-search-mcp-server",
+        "start-mcp-server"
+      ],
+      "env": {
+        "SERPER_API_KEY": "${{ secrets.SERPER_API_KEY }}",
+        "TAVILY_API_KEY": "${{ secrets.TAVILY_API_KEY }}",
+        "KINDLY_BROWSER_EXECUTABLE_PATH": "/usr/bin/google-chrome-stable"
+      }
+    },
+    "sequential-thinking": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
+    },
+    "filesystem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/github/workspace"
+      ]
+    },
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}"
+      }
+    },
+    "memory": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ]
+    },
+    "fetch": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-fetch"
+      ]
+    }
+  }
+}
+          CLAUDECODE_EOF
+          cp .mcp.json .claude/settings.json
+
+          # --- goose (.config/goose/config.yaml) ---
+          cat << 'GOOSE_EOF' > .config/goose/config.yaml
+extensions:
+  context7:
+    type: sse
+    url: "https://mcp.context7.com/mcp"
+    headers:
+      CONTEXT7_API_KEY: "${{ secrets.CONTEXT7_API_KEY }}"
+    timeout: 300
+    enabled: true
+
+  ref:
+    type: sse
+    url: "https://api.ref.tools/mcp"
+    headers:
+      x-ref-api-key: "${{ secrets.REF_API_KEY }}"
+    timeout: 300
+    enabled: true
+
+  docfork:
+    type: stdio
+    command: "npx"
+    args:
+      - "-y"
+      - "docfork"
+    timeout: 300
+    enabled: true
+
+  exa:
+    type: sse
+    url: "https://mcp.exa.ai/mcp"
+    timeout: 300
+    enabled: true
+
+  linkup:
+    type: sse
+    url: "https://mcp.linkup.so/mcp?apiKey=${{ secrets.LINKUP_API_KEY }}"
+    timeout: 300
+    enabled: true
+
+  kindly-web-search:
+    type: stdio
+    command: "uvx"
+    args:
+      - "--from"
+      - "git+https://github.com/Shelpuk-AI-Technology-Consulting/kindly-web-search-mcp-server"
+      - "kindly-web-search-mcp-server"
+      - "start-mcp-server"
+    env:
+      SERPER_API_KEY: "${{ secrets.SERPER_API_KEY }}"
+      TAVILY_API_KEY: "${{ secrets.TAVILY_API_KEY }}"
+      KINDLY_BROWSER_EXECUTABLE_PATH: "/usr/bin/google-chrome-stable"
+    timeout: 300
+    enabled: true
+
+  sequential-thinking:
+    type: stdio
+    command: "npx"
+    args:
+      - "-y"
+      - "@modelcontextprotocol/server-sequential-thinking"
+    timeout: 300
+    enabled: true
+
+  filesystem:
+    type: stdio
+    command: "npx"
+    args:
+      - "-y"
+      - "@modelcontextprotocol/server-filesystem"
+      - "/github/workspace"
+    timeout: 300
+    enabled: true
+
+  github:
+    type: stdio
+    command: "npx"
+    args:
+      - "-y"
+      - "@modelcontextprotocol/server-github"
+    env:
+      GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+    timeout: 300
+    enabled: true
+
+  memory:
+    type: stdio
+    command: "npx"
+    args:
+      - "-y"
+      - "@modelcontextprotocol/server-memory"
+    timeout: 300
+    enabled: true
+
+  fetch:
+    type: stdio
+    command: "npx"
+    args:
+      - "-y"
+      - "@modelcontextprotocol/server-fetch"
+    timeout: 300
+    enabled: true
+
+          GOOSE_EOF
+
+          # --- opencode (.opencode.json) ---
+          cat << 'OPENCODE_EOF' > .opencode.json
+{
+  "mcpServers": {
+    "context7": {
+      "type": "sse",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "${{ secrets.CONTEXT7_API_KEY }}"
+      }
+    },
+    "ref": {
+      "type": "sse",
+      "url": "https://api.ref.tools/mcp",
+      "headers": {
+        "x-ref-api-key": "${{ secrets.REF_API_KEY }}"
+      }
+    },
+    "docfork": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "docfork"
+      ]
+    },
+    "exa": {
+      "type": "sse",
+      "url": "https://mcp.exa.ai/mcp"
+    },
+    "linkup": {
+      "type": "sse",
+      "url": "https://mcp.linkup.so/mcp?apiKey=${{ secrets.LINKUP_API_KEY }}"
+    },
+    "kindly-web-search": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/Shelpuk-AI-Technology-Consulting/kindly-web-search-mcp-server",
+        "kindly-web-search-mcp-server",
+        "start-mcp-server"
+      ],
+      "env": {
+        "SERPER_API_KEY": "${{ secrets.SERPER_API_KEY }}",
+        "TAVILY_API_KEY": "${{ secrets.TAVILY_API_KEY }}",
+        "KINDLY_BROWSER_EXECUTABLE_PATH": "/usr/bin/google-chrome-stable"
+      }
+    },
+    "sequential-thinking": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
+    },
+    "filesystem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/github/workspace"
+      ]
+    },
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}"
+      }
+    },
+    "memory": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ]
+    },
+    "fetch": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-fetch"
+      ]
+    }
+  }
+}
+          OPENCODE_EOF
+          cp .opencode.json .opencode/config.json
+
+          # --- crush (.config/crush/config.toml) ---
+          cat << 'CRUSH_EOF' > .config/crush/config.toml
+[mcp.servers.context7]
+url = "https://mcp.context7.com/mcp"
+
+[mcp.servers.context7.headers]
+CONTEXT7_API_KEY = "${{ secrets.CONTEXT7_API_KEY }}"
+
+[mcp.servers.ref]
+url = "https://api.ref.tools/mcp"
+
+[mcp.servers.ref.headers]
+x-ref-api-key = "${{ secrets.REF_API_KEY }}"
+
+[mcp.servers.docfork]
+command = "npx"
+args = ["-y", "docfork"]
+
+[mcp.servers.exa]
+url = "https://mcp.exa.ai/mcp"
+
+[mcp.servers.linkup]
+url = "https://mcp.linkup.so/mcp?apiKey=${{ secrets.LINKUP_API_KEY }}"
+
+[mcp.servers.kindly-web-search]
+command = "uvx"
+args = ["--from", "git+https://github.com/Shelpuk-AI-Technology-Consulting/kindly-web-search-mcp-server", "kindly-web-search-mcp-server", "start-mcp-server"]
+
+[mcp.servers.kindly-web-search.env]
+SERPER_API_KEY = "${{ secrets.SERPER_API_KEY }}"
+TAVILY_API_KEY = "${{ secrets.TAVILY_API_KEY }}"
+KINDLY_BROWSER_EXECUTABLE_PATH = "/usr/bin/google-chrome-stable"
+
+[mcp.servers.sequential-thinking]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+
+[mcp.servers.filesystem]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-filesystem", "/github/workspace"]
+
+[mcp.servers.github]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-github"]
+
+[mcp.servers.github.env]
+GITHUB_TOKEN = "${{ secrets.GITHUB_TOKEN }}"
+
+[mcp.servers.memory]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-memory"]
+
+[mcp.servers.fetch]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-fetch"]
+
+          CRUSH_EOF
+
+          
+      - name: Run Gemini CLI
+        if: inputs.agent_type == 'gemini'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          npm install -g @google/gemini-cli@latest
+          gemini -p "${{ inputs.prompt }}" --approval-mode=yolo
+
+      - name: Run Qwen Code
+        if: inputs.agent_type == 'qwen'
+        env:
+          QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
+        run: |
+          npm install -g qwen-code
+          qwen -p "${{ inputs.prompt }}" --yolo
+
+      - name: Run OpenCode
+        if: inputs.agent_type == 'opencode'
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          curl -fsSL https://opencode.ai/install | bash
+          opencode -p "${{ inputs.prompt }}" -f json -q
+
+      - name: Run Claude Code (via OpenRouter)
+        if: inputs.agent_type == 'claude-code'
+        env:
+          ANTHROPIC_BASE_URL: https://openrouter.ai/api
+          ANTHROPIC_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          ANTHROPIC_MODEL: ${{ inputs.openrouter_model }}
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude -p "${{ inputs.prompt }}" --allowedTools "Read,Write,Edit,Bash"
+
+      - name: Run Aider
+        if: inputs.agent_type == 'aider'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          pip install aider-chat --break-system-packages
+          aider --model gemini/gemini-2.5-pro --message "${{ inputs.prompt }}" --yes --no-git
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "repoflux-agent[bot]"
+          git config --global user.email "repoflux-agent[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Auto-generated by RepoFlux (${{ inputs.agent_type }})"
+            git push origin ${{ inputs.branch }}
+          fi
