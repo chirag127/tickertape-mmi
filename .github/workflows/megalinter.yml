@@ -7,11 +7,46 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
   issues: write
   security-events: write
 
+concurrency:
+  group: megalinter-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  lint:
-    uses: chirag127/workflows/.github/workflows/megalinter.yml@main
+  megalinter:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: MegaLinter
+        id: ml
+        uses: oxsecurity/megalinter@v8
+        env:
+          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MEGALINTER_FLAVOR: all
+          APPLY_FIXES: all
+          APPLY_FIXES_EVENT: push
+          APPLY_FIXES_MODE: commit
+
+      - name: Upload MegaLinter reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: megalinter-reports
+          path: |
+            megalinter-reports
+            mega-linter.log
+          retention-days: 14
