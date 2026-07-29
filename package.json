@@ -1,5 +1,5 @@
 {
-  "name": "mmi-tickertape",
+  "name": "tickertape-mmi",
   "version": "0.2.0",
   "description": "Tickertape Market Mood Index mirror — scraped hourly by GitHub Actions, served via GitHub Pages + raw.githubusercontent.com.",
   "private": true,
