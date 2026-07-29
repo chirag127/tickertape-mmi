@@ -13,11 +13,11 @@ Hourly mirror of [Tickertape's Market Mood Index](https://www.tickertape.in/mark
 
 | URL | Description |
 | --- | --- |
-| `https://market-mood-index.api.oriz.in/latest.json` | Most recent scrape |
-| `https://market-mood-index.api.oriz.in/<YYYY-MM-DD>.json` | A specific day (overwritten on each hourly run) |
+| `https://market-mood-index.api.oriz.in/data/latest.json` | Most recent scrape |
+| `https://market-mood-index.api.oriz.in/data/<YYYY-MM-DD>.json` | A specific day |
 | `https://raw.githubusercontent.com/chirag127/tickertape-mmi/main/data/latest.json` | Same data via raw (no Pages dependency) |
 
-## Response shape (`latest.json`)
+## Response shape (`data/latest.json`)
 
 ```json
 {
