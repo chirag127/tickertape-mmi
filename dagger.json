@@ -5,7 +5,7 @@
   "dependencies": [
     {
       "name": "ci",
-      "source": "github.com/chirag127/workflows/dagger/astro-api@main"
+      "source": "github.com/chirag127/workflows/dagger/data-scrape-api@main"
     }
   ]
 }
